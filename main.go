@@ -48,6 +48,7 @@ func main() {
 	http.HandleFunc("/", handleIndex)
 	http.HandleFunc("/add", handleAdd)
 	http.HandleFunc("/complete", handleComplete)
+	http.HandleFunc("/uncompleted", handleUncompleted)
 	fmt.Println("Server is running on http://localhost:5050")
 	log.Fatal(http.ListenAndServe(":5050", nil))
 }
@@ -77,7 +78,11 @@ func handleAdd(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	tmpl.ExecuteTemplate(w, "todo-list", todos)
+
+	// Render and send the updated todo-list HTML
+	if err := tmpl.ExecuteTemplate(w, "todo-list", todos); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func handleComplete(w http.ResponseWriter, r *http.Request) {
@@ -88,18 +93,44 @@ func handleComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch updated list and re-render the todo-list template
 	todos, err := getTodos()
+	if err != nil {
+		fmt.Println("Error: ", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Render and send the updated todo-list HTML
+	if err := tmpl.ExecuteTemplate(w, "todo-list", todos); err != nil {
+		fmt.Println("Error: ", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	// handleIndex(w, r)
+}
+
+func handleUncompleted(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.Atoi(r.FormValue("id"))
+	_, err := db.Exec("UPDATE todos SET completed = 0 WHERE id = ?", id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
-	// Ensure this matches the exact partial template name in your HTML
-	err = tmpl.ExecuteTemplate(w, "todo-list", todos)
+
+	todos, err := getTodos()
 	if err != nil {
+		fmt.Println("Error: ", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Render and send the updated todo-list HTML
+	if err := tmpl.ExecuteTemplate(w, "todo-list", todos); err != nil {
+		fmt.Println("Error: ", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+
+	// handleIndex(w, r)
 }
 
 func getTodos() ([]Todo, error) {

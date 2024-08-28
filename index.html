@@ -6,11 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Todo App</title>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 800px;
+            max-width: 85vw;
             margin: 0 auto;
             padding: 20px;
             background-color: #1e1e1e;
@@ -27,23 +26,24 @@
         form {
             margin-bottom: 20px;
             display: flex;
+            flex-wrap: wrap; /* Allow wrapping of form items */
             gap: 10px;
             background-color: #2e2e2e;
             padding: 15px;
             border-radius: 8px;
         }
-
+        
         input[type="text"],
         select,
         input[type="date"] {
-            flex: 1;
+            flex: 1 1 200px; /* Allow form elements to grow and shrink */
             padding: 10px;
             border: 1px solid #3e3e3e;
             border-radius: 5px;
             background-color: #3e3e3e;
             color: #f0f0f0;
         }
-
+        
         button {
             padding: 10px 15px;
             border: none;
@@ -52,8 +52,9 @@
             color: white;
             cursor: pointer;
             transition: background-color 0.3s ease;
+            flex: 1px 1px;
         }
-
+        
         button:hover {
             background-color: #0056b3;
         }
@@ -126,7 +127,11 @@
         {{.Task}} (Priority: {{.Priority}}, Due: {{.DueDate.Format "2006-01-02"}})
         {{if not .Completed}}
         <button hx-post="/complete" hx-vals='{"id": {{.ID}}}' hx-target="#todo-list"
-            hx-swap="outerHTML">Complete</button>
+            >Complete</button>
+        {{end}}
+        {{if .Completed}}
+        <button hx-post="/uncompleted" hx-vals='{"id": {{.ID}}}' hx-target="#todo-list"
+            >Uncomplete</button>
         {{end}}
     </li>
     {{end}}
