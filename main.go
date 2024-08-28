@@ -48,8 +48,8 @@ func main() {
 	http.HandleFunc("/", handleIndex)
 	http.HandleFunc("/add", handleAdd)
 	http.HandleFunc("/complete", handleComplete)
-	fmt.Println("Server is running on http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	fmt.Println("Server is running on http://localhost:5050")
+	log.Fatal(http.ListenAndServe(":5050", nil))
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {
