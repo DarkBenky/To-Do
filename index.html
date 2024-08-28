@@ -106,7 +106,7 @@
 
 <body>
     <h1>Todo App</h1>
-    <form hx-post="/add" hx-target="#todo-list" hx-swap="outerHTML">
+    <form hx-post="/add" hx-target="#todo-list">
         <input type="text" name="task" placeholder="Enter task" required>
         <select name="priority" required>
             <option value="1">High</option>
