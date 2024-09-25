@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
@@ -18,6 +19,11 @@ type Todo struct {
 	Priority  int
 	DueDate   time.Time
 	Completed bool
+}
+
+type TodoGroup struct {
+	Date  time.Time
+	Todos []Todo
 }
 
 var db *sql.DB
@@ -54,12 +60,12 @@ func main() {
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {
-	todos, err := getTodos()
+	todoGroups, err := getTodoGroups()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	tmpl.Execute(w, todos)
+	tmpl.Execute(w, todoGroups)
 }
 
 func handleAdd(w http.ResponseWriter, r *http.Request) {
@@ -73,14 +79,13 @@ func handleAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	todos, err := getTodos()
+	todoGroups, err := getTodoGroups()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Render and send the updated todo-list HTML
-	if err := tmpl.ExecuteTemplate(w, "todo-list", todos); err != nil {
+	if err := tmpl.ExecuteTemplate(w, "todo-list", todoGroups); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -93,20 +98,15 @@ func handleComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	todos, err := getTodos()
+	todoGroups, err := getTodoGroups()
 	if err != nil {
-		fmt.Println("Error: ", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Render and send the updated todo-list HTML
-	if err := tmpl.ExecuteTemplate(w, "todo-list", todos); err != nil {
-		fmt.Println("Error: ", err)
+	if err := tmpl.ExecuteTemplate(w, "todo-list", todoGroups); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-
-	// handleIndex(w, r)
 }
 
 func handleUncompleted(w http.ResponseWriter, r *http.Request) {
@@ -117,24 +117,43 @@ func handleUncompleted(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	todos, err := getTodos()
+	todoGroups, err := getTodoGroups()
 	if err != nil {
-		fmt.Println("Error: ", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Render and send the updated todo-list HTML
-	if err := tmpl.ExecuteTemplate(w, "todo-list", todos); err != nil {
-		fmt.Println("Error: ", err)
+	if err := tmpl.ExecuteTemplate(w, "todo-list", todoGroups); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
 
-	// handleIndex(w, r)
+func getTodoGroups() ([]TodoGroup, error) {
+	todos, err := getTodos()
+	if err != nil {
+		return nil, err
+	}
+
+	groups := make(map[time.Time][]Todo)
+	for _, todo := range todos {
+		date := todo.DueDate.Truncate(24 * time.Hour)
+		groups[date] = append(groups[date], todo)
+	}
+
+	var todoGroups []TodoGroup
+	for date, todos := range groups {
+		todoGroups = append(todoGroups, TodoGroup{Date: date, Todos: todos})
+	}
+
+	sort.Slice(todoGroups, func(i, j int) bool {
+		return todoGroups[i].Date.Before(todoGroups[j].Date)
+	})
+
+	return todoGroups, nil
 }
 
 func getTodos() ([]Todo, error) {
-	rows, err := db.Query("SELECT id, task, priority, due_date, completed FROM todos ORDER BY completed ASC, priority DESC, due_date ASC")
+	rows, err := db.Query("SELECT id, task, priority, due_date, completed FROM todos ORDER BY due_date ASC, priority ASC, completed ASC")
 	if err != nil {
 		return nil, err
 	}
