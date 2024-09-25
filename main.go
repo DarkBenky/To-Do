@@ -153,7 +153,7 @@ func getTodoGroups() ([]TodoGroup, error) {
 }
 
 func getTodos() ([]Todo, error) {
-	rows, err := db.Query("SELECT id, task, priority, due_date, completed FROM todos ORDER BY due_date DES, priority ASC, completed ASC")
+	rows, err := db.Query("SELECT id, task, priority, due_date, completed FROM todos ORDER BY due_date DESC, priority ASC, completed ASC")
 	if err != nil {
 		return nil, err
 	}
