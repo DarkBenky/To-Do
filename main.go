@@ -145,15 +145,17 @@ func getTodoGroups() ([]TodoGroup, error) {
 		todoGroups = append(todoGroups, TodoGroup{Date: date, Todos: todos})
 	}
 
+	// Sort the groups so that the newest dates are at the top
 	sort.Slice(todoGroups, func(i, j int) bool {
-		return todoGroups[i].Date.Before(todoGroups[j].Date)
+		return todoGroups[i].Date.After(todoGroups[j].Date)
 	})
 
 	return todoGroups, nil
 }
 
 func getTodos() ([]Todo, error) {
-	rows, err := db.Query("SELECT id, task, priority, due_date, completed FROM todos ORDER BY due_date DESC, priority ASC, completed DESC")
+	// Modified the ORDER BY clause to sort by due_date DESC
+	rows, err := db.Query("SELECT id, task, priority, due_date, completed FROM todos ORDER BY due_date DESC, priority ASC, completed ASC")
 	if err != nil {
 		return nil, err
 	}
