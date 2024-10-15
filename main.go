@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -26,8 +27,14 @@ type TodoGroup struct {
 	Todos []Todo
 }
 
-var db *sql.DB
-var tmpl *template.Template
+var (
+	db         *sql.DB
+	tmpl       *template.Template
+	cache      []TodoGroup
+	cacheMutex sync.RWMutex
+	cacheTTL   = time.Minute * 1 // Set a TTL for cache
+	lastLoad   time.Time         // Last time cache was loaded
+)
 
 func init() {
 	var err error
@@ -59,8 +66,31 @@ func main() {
 	log.Fatal(http.ListenAndServe(":5050", nil))
 }
 
-func handleIndex(w http.ResponseWriter, r *http.Request) {
+// Caching wrapper for getTodoGroups
+func getCachedTodoGroups() ([]TodoGroup, error) {
+	cacheMutex.RLock()
+	// If cache is valid, return the cached result
+	if time.Since(lastLoad) < cacheTTL {
+		defer cacheMutex.RUnlock()
+		return cache, nil
+	}
+	cacheMutex.RUnlock()
+
+	// Else, refresh cache
 	todoGroups, err := getTodoGroups()
+	if err != nil {
+		return nil, err
+	}
+
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+	cache = todoGroups
+	lastLoad = time.Now()
+	return cache, nil
+}
+
+func handleIndex(w http.ResponseWriter, r *http.Request) {
+	todoGroups, err := getCachedTodoGroups()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -79,7 +109,9 @@ func handleAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	todoGroups, err := getTodoGroups()
+	invalidateCache()
+
+	todoGroups, err := getCachedTodoGroups()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -98,7 +130,9 @@ func handleComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	todoGroups, err := getTodoGroups()
+	invalidateCache()
+
+	todoGroups, err := getCachedTodoGroups()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -117,7 +151,9 @@ func handleUncompleted(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	todoGroups, err := getTodoGroups()
+	invalidateCache()
+
+	todoGroups, err := getCachedTodoGroups()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -154,7 +190,6 @@ func getTodoGroups() ([]TodoGroup, error) {
 }
 
 func getTodos() ([]Todo, error) {
-	// Modified the ORDER BY clause to sort by due_date DESC
 	rows, err := db.Query("SELECT id, task, priority, due_date, completed FROM todos ORDER BY due_date DESC, priority ASC, completed ASC")
 	if err != nil {
 		return nil, err
@@ -171,4 +206,12 @@ func getTodos() ([]Todo, error) {
 		todos = append(todos, t)
 	}
 	return todos, nil
+}
+
+// Invalidate the cache when new data is added or modified
+func invalidateCache() {
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+	cache = nil
+	lastLoad = time.Time{} // reset last load to force reload
 }
