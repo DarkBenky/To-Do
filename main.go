@@ -43,6 +43,10 @@ func init() {
 		log.Fatal(err)
 	}
 
+	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		log.Fatalf("Failed to enable WAL mode: %v", err)
+	}
+
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS todos (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		task TEXT,
